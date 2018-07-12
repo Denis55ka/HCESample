@@ -5,16 +5,15 @@ import android.content.Intent
 import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.nfc.tech.IsoDep
-import android.nfc.tech.NfcA
-import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
+import android.support.v7.app.AppCompatActivity
 import android.util.Log
 import java.io.IOException
 
-class MainActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
-    private val READER_FLAGS = NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK
+private const val READER_FLAGS = NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK
 
-    private val nfcTechFilter = arrayOf(arrayOf(NfcA::class.java.name))
+class MainActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
+
     private lateinit var nfcAdapter: NfcAdapter
     private lateinit var nfcIntent: PendingIntent
 
@@ -28,7 +27,7 @@ class MainActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
 
     override fun onResume() {
         super.onResume()
-        nfcAdapter.enableReaderMode(this, this, READER_FLAGS, null)
+//        nfcAdapter.enableReaderMode(this, this, READER_FLAGS, null)
     }
 
     override fun onPause() {
@@ -50,19 +49,19 @@ class MainActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
 
     private fun readCard(dep: IsoDep) {
         var received: ByteArray?
-        received = transceive(dep, HCEService.SELECT_COMMAND)
+        received = transceive(dep, SELECT_COMMAND)
         if (received.toHexString().takeLast(5) != "90 00") {
             return
         }
-        received = transceive(dep, HCEService.GET_PROCESSING_OPTIONS_COMMAND)
+        received = transceive(dep, GET_PROCESSING_OPTIONS_COMMAND)
         if (received.toHexString().takeLast(5) != "90 00") {
             return
         }
-        received = transceive(dep, HCEService.READ_RECORD_COMMAND)
+        received = transceive(dep, READ_RECORD_COMMAND)
         if (received.toHexString().takeLast(5) != "90 00") {
             return
         }
-        received = transceive(dep, HCEService.COMPUTE_CRYPTOGRAPHIC_CHECKSUM_COMMAND)
+        received = transceive(dep, COMPUTE_CRYPTOGRAPHIC_CHECKSUM_COMMAND)
     }
 
     private fun transceive(dep: IsoDep, hexString: String): ByteArray {

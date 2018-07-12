@@ -10,3 +10,5 @@ fun String.toByteArray(): ByteArray {
 }
 
 fun ByteArray.toHexString(): String = joinToString(" ") { String.format("%02X", it) }
+
+fun Int.toHexString(): String = Integer.toHexString(this)
