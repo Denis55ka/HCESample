@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">HCESample</string>
+    <string name="service_description">Licard Loyalty Pay</string>
+    <string name="aid_description">Licard Pay</string>
+</resources>
