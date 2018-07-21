@@ -2,11 +2,13 @@ package com.denis55ka.hcesample
 
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.nfc.NfcAdapter
 import android.nfc.Tag
+import android.nfc.cardemulation.CardEmulation
 import android.nfc.tech.IsoDep
 import android.os.Bundle
 import android.support.v4.content.LocalBroadcastManager
@@ -24,17 +26,12 @@ class MainActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
     private lateinit var nfcAdapter: NfcAdapter
     private lateinit var nfcIntent: PendingIntent
     private lateinit var logText: TextView
+    private lateinit var hceComponentName: ComponentName
+    private lateinit var cardEmulation: CardEmulation
 
     private val logReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            val payload = intent.getStringExtra("PAYLOAD")
-            if (payload == SELECT_COMMAND) {
-                logText.append("========================================\n")
-            }
-            logText.append("${intent.action}: $payload\n")
-            if (intent.action == "R-APDU") {
-                logText.append("\n")
-            }
+            log(intent.action, intent.getStringExtra("PAYLOAD"))
         }
     }
 
@@ -44,6 +41,7 @@ class MainActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
         logText = findViewById(R.id.log_text)
 
         nfcAdapter = NfcAdapter.getDefaultAdapter(this)
+        cardEmulation = CardEmulation.getInstance(nfcAdapter)
         nfcIntent = PendingIntent.getActivity(this, 0, Intent(this, javaClass).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), 0)
         GetProcessingOptionsResponse(AIP_FLAG_RFU)
         LocalBroadcastManager.getInstance(this)
@@ -51,24 +49,19 @@ class MainActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
                     addAction("C-APDU")
                     addAction("R-APDU")
                 })
-    }
-
-    override fun onStart() {
-        super.onStart()
+        hceComponentName = ComponentName(this, HCEService::class.java.canonicalName)
     }
 
     override fun onResume() {
         super.onResume()
-//        nfcAdapter.enableReaderMode(this, this, READER_FLAGS, null)
+        nfcAdapter.enableReaderMode(this, this, READER_FLAGS, null)
+//        cardEmulation.setPreferredService(this, hceComponentName)
     }
 
     override fun onPause() {
         super.onPause()
         nfcAdapter.disableReaderMode(this)
-    }
-
-    override fun onStop() {
-        super.onStop()
+//        cardEmulation.unsetPreferredService(this)
     }
 
     override fun onDestroy() {
@@ -82,7 +75,7 @@ class MainActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
             dep.connect()
             readCard(dep)
         } catch (e: IOException) {
-            Log.i("HCESample", "Error tagcomm: " + e.message)
+            log("APDU", "Error tagcomm: " + e.message)
         } finally {
             dep.close()
         }
@@ -90,7 +83,11 @@ class MainActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
 
     private fun readCard(dep: IsoDep) {
         var received: ByteArray?
-        received = transceive(dep, SELECT_COMMAND)
+        received = transceive(dep, SELECT_PPSE_COMMAND)
+        if (received.toHexString().takeLast(5) != "90 00") {
+            return
+        }
+        received = transceive(dep, SELECT_AID_COMMAND)
         if (received.toHexString().takeLast(5) != "90 00") {
             return
         }
@@ -102,15 +99,29 @@ class MainActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
         if (received.toHexString().takeLast(5) != "90 00") {
             return
         }
-        received = transceive(dep, COMPUTE_CRYPTOGRAPHIC_CHECKSUM_COMMAND)
+        transceive(dep, COMPUTE_CRYPTOGRAPHIC_CHECKSUM_COMMAND)
     }
 
     private fun transceive(dep: IsoDep, hexString: String): ByteArray {
         val bytes = hexString.toByteArray()
-        Log.i("HCESample", "Send: ${bytes.toHexString()}")
+        log("C-APDU", bytes.toHexString())
         val received = dep.transceive(bytes)
-        Log.i("HCESample", "Received: " + received.toHexString())
+        log("R-APDU", received.toHexString())
         return received
+    }
+
+    private fun log(action: String, apdu: String) {
+        runOnUiThread {
+            if (apdu == SELECT_PPSE_COMMAND || apdu == SELECT_AID_COMMAND) {
+                logText.append("========================================\n")
+                Log.i("APDU", "========================================")
+            }
+            logText.append("$action: $apdu\n")
+            Log.i(action, apdu)
+            if (action == "R-APDU") {
+                logText.append("\n")
+            }
+        }
     }
 
 }
